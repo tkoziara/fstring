@@ -7,23 +7,28 @@
 #include <regex>
 #include <stdexcept>
 #include <type_traits>
-#include <experimental/type_traits>
 
 namespace fstring {
 
 namespace detail {
     // Helper to check if a type can be streamed
-    template<typename T>
-    using is_streamable = decltype(std::declval<std::ostream&>() << std::declval<T>());
+    template <typename, typename = std::void_t<>>
+    struct is_streamable : std::false_type {};
 
-    template<typename T>
-    constexpr bool is_streamable_v = std::experimental::is_detected_v<is_streamable, T>;
+    template <typename T>
+    struct is_streamable<T, std::void_t<decltype(std::declval<std::ostream&>() << std::declval<T>())>> 
+        : std::true_type {};
+
+    template <typename T>
+    inline constexpr bool is_streamable_v = is_streamable<T>::value;
 
     // Convert any streamable type to string
     template<typename T>
     std::string to_string(const T& value) {
         if constexpr (std::is_same_v<T, std::string> || std::is_same_v<T, const char*>) {
             return value;
+        } else if constexpr (std::is_convertible_v<T, std::string>) {
+            return std::string(value);
         } else if constexpr (is_streamable_v<T>) {
             std::ostringstream ss;
             ss << value;
