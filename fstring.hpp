@@ -253,6 +253,10 @@ std::string f_impl(const std::string& format, Args&&... args) {
         // Apply format specifier if present (basic implementation)
         if (!format_spec.empty()) {
             replacement = apply_format_spec(replacement, format_spec);
+
+            if (format_spec.front() == '+') {
+                format_spec = "\\" + format_spec; // This helps to escape the '+' sign
+            }
         }
         
         // Replace the placeholder with the value

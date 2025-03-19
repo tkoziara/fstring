@@ -24,14 +24,15 @@ TEST(escape_braces);
 
 int main() {
 
+    // Example usage
     std::cout << "This code:" << std::endl <<
 R"delimeter(
     std::cout << f(
-R"(My name is: {name}
-My surname is: {surname}
-My weight is: {weight} kg
-And this is my age: {age} years old
-And my boolean status is: {status}
+R"(My name is {name}.
+My surname is {surname}.
+I am {age} years old.
+My body weight is {weight} kg.
+And all that I'm saying is {status}.
 )",
     "name"_a="John",
     "surname"_a="Doe",
@@ -41,13 +42,13 @@ And my boolean status is: {status}
     ) << std::endl;
 )delimeter" << std::endl << "Outputs:" << std::endl << std::endl;
 
-    // Run some examples
+    // Example usage
     std::cout << f(
-R"(My name is: {name}
-My surname is: {surname}
-My weight is: {weight} kg
-And this is my age: {age} years old
-And my boolean status is: {status}
+R"(My name is {name}.
+My surname is {surname}.
+I am {age} years old.
+My body weight is {weight} kg.
+And all that I'm saying is {status}.
 )",
     "name"_a="John",
     "surname"_a="Doe",
@@ -126,11 +127,16 @@ TEST(format_specifiers) {
     assert(apply_format_spec("42", "d") == "42");
     assert(apply_format_spec("42", "+d") == "+42");
     assert(apply_format_spec("42", " d") == " 42");
-    assert(apply_format_spec("42", "05d") == "00042");
     assert(apply_format_spec("42", "#b") == "0b101010");
     assert(apply_format_spec("42", "#o") == "052");
     assert(apply_format_spec("42", "#x") == "0x2a");
     assert(apply_format_spec("42", "#X") == "0X2A");
+    
+    // Integer formatting with width and alignment
+    assert(apply_format_spec("42", "5d") == "   42");
+    assert(apply_format_spec("42", "<5d") == "42   ");
+    assert(apply_format_spec("42", "^5d") == " 42  ");
+    assert(apply_format_spec("42", "05d") == "00042");
     
     // Float formatting
     assert(apply_format_spec("3.14159", "f") == "3.141590"); // Default precision
@@ -143,6 +149,25 @@ TEST(format_specifiers) {
     assert(apply_format_spec("0.75", "%") == "75.000000%");
     assert(apply_format_spec("0.75", ".1%") == "75.0%");
 
+    // Float formatting with width and alignment
+    assert(apply_format_spec("3.14159", "10f") == "  3.141590");
+    assert(apply_format_spec("3.14159", "<10f") == "3.141590  ");
+    assert(apply_format_spec("3.14159", "^10f") == " 3.141590 ");
+    assert(apply_format_spec("3.14159", "010f") == "003.141590");
+    
+    // Percentage formatting with width and alignment
+    assert(apply_format_spec("0.75", "11%") == " 75.000000%");
+    assert(apply_format_spec("0.75", "<11%") == "75.000000% ");
+    assert(apply_format_spec("0.75", "^11%") == "75.000000% ");
+    assert(apply_format_spec("0.75", "011%") == "075.000000%");
+    
+    // Scientific notation formatting with width and alignment
+    assert(apply_format_spec("3.14159", "10e") == "3.141590e+00");
+    assert(apply_format_spec("3.14159", "<10e") == "3.141590e+00");
+    assert(apply_format_spec("3.14159", "^10e") == "3.141590e+00");
+    assert(apply_format_spec("3.14159", "010e") == "3.141590e+00");
+
+    // Testing format specifiers within f-string syntax
     int number = 42;
     std::string result = f("Number: {num:d}", "num"_a=number);
     assert(result == "Number: 42");
@@ -150,6 +175,30 @@ TEST(format_specifiers) {
     double value = 3.14159;
     result = f("Pi: {pi:f}", "pi"_a=value);
     assert(result == "Pi: 3.141590");
+
+    result = f("Pi: {pi:.2f}", "pi"_a=value);
+    assert(result == "Pi: 3.14");
+
+    result = f("Pi: {pi:08.2f}", "pi"_a=value);
+    assert(result == "Pi: 00003.14");
+
+    result = f("Pi: {pi:+.2f}", "pi"_a=value);
+    assert(result == "Pi: +3.14");
+
+    result = f("Pi: {pi: .2f}", "pi"_a=value);
+    assert(result == "Pi:  3.14");
+
+    result = f("Pi: {pi:e}", "pi"_a=value);
+    assert(result == "Pi: 3.141590e+00");
+
+    result = f("Pi: {pi:E}", "pi"_a=value);
+    assert(result == "Pi: 3.141590E+00");
+
+    result = f("Percentage: {val:%}", "val"_a=0.75);
+    assert(result == "Percentage: 75.000000%");
+
+    result = f("Percentage: {val:.1%}", "val"_a=0.75);
+    assert(result == "Percentage: 75.0%");
 }
 
 // Test what happens when an argument is missing
