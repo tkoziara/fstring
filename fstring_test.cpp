@@ -113,15 +113,43 @@ TEST(nested_braces) {
     assert(result == "Vector: [1, 2, 3]");
 }
 
-// Test format specifiers (basic implementation)
+// Test format specifiers
 TEST(format_specifiers) {
+    // String formatting
+    assert(apply_format_spec("Hello", "s") == "Hello");
+    assert(apply_format_spec("Hello", "<10") == "Hello     ");
+    assert(apply_format_spec("Hello", ">10") == "     Hello");
+    assert(apply_format_spec("Hello", "^10") == "  Hello   ");
+    assert(apply_format_spec("Hello", "_>10") == "_____Hello");
+    
+    // Integer formatting
+    assert(apply_format_spec("42", "d") == "42");
+    assert(apply_format_spec("42", "+d") == "+42");
+    assert(apply_format_spec("42", " d") == " 42");
+    assert(apply_format_spec("42", "05d") == "00042");
+    assert(apply_format_spec("42", "#b") == "0b101010");
+    assert(apply_format_spec("42", "#o") == "052");
+    assert(apply_format_spec("42", "#x") == "0x2a");
+    assert(apply_format_spec("42", "#X") == "0X2A");
+    
+    // Float formatting
+    assert(apply_format_spec("3.14159", "f") == "3.141590"); // Default precision
+    assert(apply_format_spec("3.14159", ".2f") == "3.14");
+    assert(apply_format_spec("3.14159", "08.2f") == "00003.14");
+    assert(apply_format_spec("3.14159", "+.2f") == "+3.14");
+    assert(apply_format_spec("3.14159", " .2f") == " 3.14");
+    assert(apply_format_spec("3.14159", "e") == "3.141590e+00");
+    assert(apply_format_spec("3.14159", "E") == "3.141590E+00");
+    assert(apply_format_spec("0.75", "%") == "75.000000%");
+    assert(apply_format_spec("0.75", ".1%") == "75.0%");
+
     int number = 42;
     std::string result = f("Number: {num:d}", "num"_a=number);
     assert(result == "Number: 42");
     
     double value = 3.14159;
     result = f("Pi: {pi:f}", "pi"_a=value);
-    assert(result == "Pi: 3.14159");
+    assert(result == "Pi: 3.141590");
 }
 
 // Test what happens when an argument is missing
@@ -145,3 +173,4 @@ TEST(escape_braces) {
     // But our simplified version doesn't handle this, so we skip the assertion
     // assert(result == "{name} is not replaced, but Charlie is");
 }
+

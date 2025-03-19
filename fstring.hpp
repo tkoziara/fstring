@@ -40,27 +40,176 @@ namespace detail {
     }
 }
 
-// Apply format specifiers (basic implementation)
+// Apply format specifiers
 inline std::string apply_format_spec(const std::string& value, const std::string& format_spec) {
-    // This is a simplified implementation that handles a few common Python format specifiers
     if (format_spec.empty()) {
-        return value;
+        return value; // No formatting needed
     }
-
-    // Handle some basic format specifiers
-    char type = format_spec.back();
     
+    // Parsing format specifier
+    char fill = ' '; // Default fill character
+    char align = '>'; // Default right alignment
+    char sign = '\0';  // Null character (ASCII 0)
+    bool alternate_form = false; // '#' flag
+    bool zero_padding = false; // '0' flag
+    int width = 0;
+    int precision = -1;
+    char type = '\0'; // Format type (d, f, x, etc.)
+    
+    size_t pos = 0;
+    
+    // Check for fill and alignment
+    if (format_spec.size() > 1 && (format_spec[1] == '<' ||
+        format_spec[1] == '>' || format_spec[1] == '^' || format_spec[1] == '=')) {
+        fill = format_spec[0];
+        align = format_spec[1];
+        pos = 2;
+    } else if (format_spec[0] == '<' || format_spec[0] == '>' ||
+               format_spec[0] == '^' || format_spec[0] == '=') {
+        align = format_spec[0];
+        pos = 1;
+    }
+    
+    // Check for sign specifier
+    if (format_spec[pos] == '+' || format_spec[pos] == '-' || format_spec[pos] == ' ') {
+        sign = format_spec[pos];
+        pos++;
+    }
+    
+    // Check for alternate form ('#')
+    if (format_spec[pos] == '#') {
+        alternate_form = true;
+        pos++;
+    }
+    
+    // Check for zero-padding ('0')
+    if (format_spec[pos] == '0') {
+        zero_padding = true;
+        pos++;
+    }
+    
+    // Parse width
+    while (pos < format_spec.size() && std::isdigit(format_spec[pos])) {
+        width = width * 10 + (format_spec[pos] - '0');
+        pos++;
+    }
+    
+    // Parse precision
+    if (pos < format_spec.size() && format_spec[pos] == '.') {
+        pos++;
+        precision = 0;
+        while (pos < format_spec.size() && std::isdigit(format_spec[pos])) {
+            precision = precision * 10 + (format_spec[pos] - '0');
+            pos++;
+        }
+    }
+    
+    // Check type specifier
+    if (pos < format_spec.size()) {
+        type = format_spec[pos];
+    }
+    
+    std::ostringstream ss;
+    
+    // Apply sign handling
+    if (sign == '+' && value[0] != '-') {
+        ss << '+';
+    } else if (sign == ' ' && value[0] != '-') {
+        ss << ' ';
+    }
+    
+    // Handle different type specifiers
     switch (type) {
         case 's': // String
-            return value;
+            ss << value;
+            break;
         case 'd': // Decimal integer
-        case 'f': // Float
-            // For numbers, we would need to parse and format, this is simplified
-            return value;
+            ss << std::stoi(value);
+            break;
+        case 'b': // Binary
+            {
+                int num = std::stoi(value);
+                std::string binary = std::bitset<32>(num).to_string();
+                binary.erase(0, binary.find_first_not_of('0')); // Remove leading zeros
+                if (binary.empty()) binary = "0"; // Ensure at least one digit
+                if (alternate_form) {
+                    ss << "0b";
+                }
+                ss << binary;
+            }
+            break;
+        case 'o': // Octal
+            if (alternate_form) ss << "0";
+            ss << std::oct << std::stoi(value);
+            break;
+        case 'x': // Hexadecimal (lowercase)
+            if (alternate_form) ss << "0x";
+            ss << std::hex << std::stoi(value);
+            break;
+        case 'X': // Hexadecimal (uppercase)
+            if (alternate_form) ss << "0X";
+            ss << std::uppercase << std::hex << std::stoi(value);
+            break;
+        case 'f': // Fixed-point float
+        case 'e': // Scientific notation (lowercase)
+        case 'E': // Scientific notation (uppercase)
+        case '%': // Percentage
+            {
+                double num = std::stod(value);
+                if (precision < 0) {
+                    precision = 6; // Default precision for floating-point numbers
+                }
+                ss.precision(precision);
+                if (type == 'f') {
+                    ss.setf(std::ios::fixed);
+                } else if (type == 'e') {
+                    ss.setf(std::ios::scientific);
+                } else if (type == 'E') {
+                    ss.setf(std::ios::scientific);
+                    ss << std::uppercase;
+                } else if (type == '%') {
+                    ss.setf(std::ios::fixed);
+                    num *= 100;
+                }
+                ss << num;
+                if (type == '%') {
+                    ss << '%';
+                }
+            }
+            break;
         default:
-            // We could implement more specifiers like alignment, fill, width, etc.
-            return value;
+            ss << value;
     }
+    
+    std::string formatted = ss.str();
+    
+    // Apply width and alignment with zero-padding support
+    if (formatted.size() < static_cast<size_t>(width)) {
+        size_t padding = width - formatted.size();
+        if (zero_padding && align == '>') {
+            if (!formatted.empty() && (formatted[0] == '+' || formatted[0] == '-')) {
+                char sign_char = formatted[0];
+                formatted = formatted.substr(1);
+                formatted.insert(0, padding, '0');
+                formatted.insert(0, 1, sign_char);
+            } else {
+                formatted.insert(0, padding, '0');
+            }
+        } else {
+            if (align == '<') {
+                formatted.append(padding, fill);
+            } else if (align == '>') {
+                formatted.insert(0, padding, fill);
+            } else if (align == '^') {
+                size_t left_pad = padding / 2;
+                size_t right_pad = padding - left_pad;
+                formatted.insert(0, left_pad, fill);
+                formatted.append(right_pad, fill);
+            }
+        }
+    }
+    
+    return formatted;
 }
 
 /**
