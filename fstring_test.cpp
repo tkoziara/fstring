@@ -218,8 +218,6 @@ TEST(missing_argument) {
 TEST(escape_braces) {
     std::string name = "Charlie";
     std::string result = f("{{name}} is not replaced, but {name} is", "name"_a=name);
-    // Note: In a real implementation, {{ would be escaped to {
-    // But our simplified version doesn't handle this, so we skip the assertion
-    // assert(result == "{name} is not replaced, but Charlie is");
+    assert(result == "{name} is not replaced, but Charlie is");
 }
 

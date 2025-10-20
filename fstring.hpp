@@ -221,53 +221,85 @@ std::string f(const std::string& format, Args&&... args) {
     return f_impl(format, std::forward<Args>(args)...);
 }
 
-// Implementation details for f-string
+// Implementation details for f-string with proper brace escaping
 template<typename... Args>
 std::string f_impl(const std::string& format, Args&&... args) {
-    std::regex placeholder_pattern(R"(\{([^{}:]+)(?::([^{}]*))?\})");
-    std::string result = format;
-    
     // Pack the arguments into a tuple of pairs (name, value)
     std::tuple<Args...> arg_tuple{std::forward<Args>(args)...};
-    
-    // Find placeholders
-    std::smatch match;
-    std::string temp = format;
     std::map<std::string, std::string> replacements;
-    
-    // Collect replacements from tuple
     collect_replacements(replacements, arg_tuple, std::index_sequence_for<Args...>{});
     
-    // Apply all replacements
-    while (std::regex_search(temp, match, placeholder_pattern)) {
-        std::string placeholder_name = match[1].str();
-        std::string format_spec = match[2].str();
-        
-        auto it = replacements.find(placeholder_name);
-        if (it == replacements.end()) {
-            throw std::runtime_error("No value provided for placeholder: " + placeholder_name);
-        }
-        
-        std::string replacement = it->second;
-        
-        // Apply format specifier if present (basic implementation)
-        if (!format_spec.empty()) {
-            replacement = apply_format_spec(replacement, format_spec);
-
-            if (format_spec.front() == '+') {
-                format_spec = "\\" + format_spec; // This helps to escape the '+' sign
+    std::string result;
+    size_t pos = 0;
+    
+    // Use a single pass to handle both escaped braces and placeholders
+    while (pos < format.length()) {
+        // Check for escaped braces
+        if (pos + 1 < format.length() && format[pos] == '{' && format[pos + 1] == '{') {
+            result += '{';  // Add single brace
+            pos += 2;       // Skip both braces
+        } else if (pos + 1 < format.length() && format[pos] == '}' && format[pos + 1] == '}') {
+            result += '}';  // Add single brace
+            pos += 2;       // Skip both braces
+        } else if (format[pos] == '{') {
+            // Potential format placeholder - find the matching }
+            size_t start = pos;
+            size_t end = pos + 1;
+            int brace_depth = 1;
+            
+            // Find the matching closing brace, considering nested braces
+            while (end < format.length() && brace_depth > 0) {
+                if (format[end] == '{') {
+                    brace_depth++;
+                } else if (format[end] == '}') {
+                    brace_depth--;
+                }
+                if (brace_depth > 0) {
+                    end++;
+                }
             }
+            
+            if (brace_depth == 0) {
+                // We found a complete placeholder {content}
+                std::string placeholder = format.substr(start + 1, end - start - 1);
+                
+                // Parse the placeholder name and format specifier
+                size_t colon_pos = placeholder.find(':');
+                std::string placeholder_name, format_spec;
+                
+                if (colon_pos != std::string::npos) {
+                    placeholder_name = placeholder.substr(0, colon_pos);
+                    format_spec = placeholder.substr(colon_pos + 1);
+                } else {
+                    placeholder_name = placeholder;
+                }
+                
+                // Check if this placeholder has a replacement
+                auto it = replacements.find(placeholder_name);
+                if (it != replacements.end()) {
+                    std::string replacement = it->second;
+                    
+                    // Apply format specifier if present
+                    if (!format_spec.empty()) {
+                        replacement = apply_format_spec(replacement, format_spec);
+                    }
+                    
+                    result += replacement;
+                } else {
+                    throw std::runtime_error("No value provided for placeholder: " + placeholder_name);
+                }
+                
+                pos = end + 1; // Move past the closing brace
+            } else {
+                // No matching closing brace found, treat as literal
+                result += format[pos];
+                pos++;
+            }
+        } else {
+            // Regular character
+            result += format[pos];
+            pos++;
         }
-        
-        // Replace the placeholder with the value
-        result = std::regex_replace(result, 
-                                   std::regex("\\{" + placeholder_name + 
-                                             (format_spec.empty() ? "\\}" : ":" + format_spec + "\\}")),
-                                   replacement, 
-                                   std::regex_constants::format_first_only);
-        
-        // Move to next match
-        temp = match.suffix().str();
     }
     
     return result;
